@@ -129,11 +129,16 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-
+.firebaserc
 # Spyder project settings
 .spyderproject
 .spyproject
 
+aarogyam-d06ff-firebase-adminsdk-cwxbv-f009afdfb4.json
+database.rules.json
+firebase.json
+dataconnect
+ all
 # Rope project settings
 .ropeproject
 

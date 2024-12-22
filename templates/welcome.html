@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome</title>
+</head>
+<body>
+    <h1>Welcome, {{ user.name }}!</h1>
+    <p>Your email: {{ user.email }}</p>
+    <p>What would you like to do?</p>
+    <ul>
+        <li><a href="/register_result">Register a Result</a></li>
+        <li><a href="/get_results/{{ user.email }}">View Results</a></li>
+    </ul>
+</body>
+</html>
