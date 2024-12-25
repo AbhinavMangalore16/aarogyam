@@ -1,6 +1,8 @@
-from flask import Flask, request, render_template, redirect, url_for
+from flask import Flask, request, render_template, redirect, url_for, jsonify
+from flask_cors import CORS
 import firebase_admin
 from firebase_admin import credentials, firestore
+from geolocator.geolocator import nearby_hospitals
 
 cred = credentials.Certificate("aarogyam-d06ff-firebase-adminsdk-cwxbv-f009afdfb4.json")
 firebase_admin.initialize_app(cred)
@@ -9,6 +11,7 @@ firebase_admin.initialize_app(cred)
 db = firestore.client()
 
 app = Flask(__name__)
+CORS(app)
 
 # Signup Endpoint
 @app.route('/signup', methods=['GET', 'POST'])
@@ -103,6 +106,18 @@ def get_results(email):
     except Exception as e:
         return f"Error: {str(e)}", 500
 
-# Run the app
+@app.route('/hosps_nearby', methods=['GET'])
+def fetch_hospitals():
+    latitude = request.args.get('latitude')
+    longitude = request.args.get('longitude')
+    if not (latitude and longitude):
+        return {"error": "latitude and longitude are required"}, 400
+    hospitals = nearby_hospitals(latitude, longitude)
+    return jsonify(hospitals)
+
+
+
+
+
 if __name__ == "__main__":
     app.run(debug=True)
