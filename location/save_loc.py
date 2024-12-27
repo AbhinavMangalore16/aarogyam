@@ -2,7 +2,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from flask import Flask, request
 import requests
-from ..app import app
+
 
 
 db = firestore.client()
