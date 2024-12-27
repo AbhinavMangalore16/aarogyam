@@ -3,6 +3,8 @@ from flask_cors import CORS
 import firebase_admin
 from firebase_admin import credentials, firestore
 from geolocator.geolocator import nearby_hospitals
+import math
+import requests
 
 cred = credentials.Certificate("aarogyam-d06ff-firebase-adminsdk-cwxbv-f009afdfb4.json")
 firebase_admin.initialize_app(cred)
@@ -106,17 +108,52 @@ def get_results(email):
     except Exception as e:
         return f"Error: {str(e)}", 500
 
-@app.route('/hosps_nearby', methods=['GET'])
-def fetch_hospitals():
-    latitude = request.args.get('latitude')
-    longitude = request.args.get('longitude')
-    if not (latitude and longitude):
-        return {"error": "latitude and longitude are required"}, 400
-    hospitals = nearby_hospitals(latitude, longitude)
-    return jsonify(hospitals)
+def cartesian_distance(lat1, lon1, lat2, lon2):
+    return math.sqrt((lat1 - lat2) ** 2 + (lon1 - lon2) ** 2)
 
+def get_userlocation():
+    res = requests.get('http://ip-api.com/json/')
+    if res.status_code == 200:
+        data = res.json()
+        lat = data.get('lat')
+        long = data.get('lon')
+        return lat, long
+    
+@app.route('/nearby_hospitals', methods = ['GET'])
+def nearest_hospitals():
+    try:
+        lat, long = get_userlocation()
+        
+        hospitals_ref = db.collection('hospitals')
+        for doc in hospitals_ref.stream():
+            print(doc.to_dict())
+        hospitals = [
+            {
+                "uuid": doc.get("uuid"),
+                "name": doc.get("name"),
+                "lat": float(doc.get("lat")),
+                "long": float(doc.get("long")),
+                
+            }
+            for doc in hospitals_ref.stream()
+        ]
 
-
+        for hospital in hospitals:
+            hospital["distance"] = cartesian_distance(lat, long, hospital["lat"], hospital["long"])
+        nearest_hosps = sorted(hospitals, key=lambda x: x["distance"])[:3]
+        return jsonify({
+            "nearest_hospitals": [
+                {
+                    "uuid": hospital["uuid"],
+                    "name": hospital["name"],
+                    "latitude": hospital["lat"],
+                    "longitude": hospital["long"],
+                }
+                for hospital in nearest_hosps
+            ]
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
 
 if __name__ == "__main__":

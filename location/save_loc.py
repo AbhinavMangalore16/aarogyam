@@ -2,9 +2,8 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from flask import Flask, request
 import requests
+from ..app import app
 
-cred = credentials.Certificate("aarogyam-d06ff-firebase-adminsdk-cwxbv-f009afdfb4.json")
-firebase_admin.initialize_app(cred)
 
 db = firestore.client()
 
@@ -31,6 +30,8 @@ def save_location(lat, long):
         print(f"document added: {doc[1].id}")
     except Exception as e:
         print(f"Error: {str(e)}")
+
+
 
 lat, long = get_userlocation()         
 save_location(lat, long)
