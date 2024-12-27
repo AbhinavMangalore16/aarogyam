@@ -7,8 +7,9 @@ import datetime
 import uuid
 from functools import wraps
 import os
+from location import get_location
 
-cred = credentials.Certificate("aarogyam-d06ff-firebase-adminsdk-cwxbv-f009afdfb4.json")
+cred = credentials.Certificate(os.environ['FIREBASE_KEY'])
 firebase_admin.initialize_app(cred)
 
 db = firestore.client()
@@ -88,36 +89,43 @@ def signin():
         return jsonify({'token': token}), 200
     except Exception as e:
         return jsonify({'message': f'Error: {str(e)}'}), 500
-
-@app.route('/register_result', methods=['POST'])
+    
+@app.route('/nearby_hospitals', methods = ['GET'])
 @jwt_authenticate
-def register_result():
-    data = request.json
-    email = data.get('email')
-    result = data.get('result')
-
-    if not email or not result:
-        return jsonify({'message': 'Missing email or result'}), 400
-
+def nearest_hospitals():
     try:
-        result_ref = db.collection('results').document()
-        result_ref.set({
-            'email': email,
-            'result': result
-        })
-        return jsonify({'message': 'Result registered successfully'}), 201
-    except Exception as e:
-        return jsonify({'message': f'Error: {str(e)}'}), 500
+        lat, long = get_location.get_userlocation()
+        
+        hospitals_ref = db.collection('hospitals')
+        for doc in hospitals_ref.stream():
+            print(doc.to_dict())
+        hospitals = [
+            {
+                "uuid": doc.get("uuid"),
+                "name": doc.get("name"),
+                "lat": float(doc.get("lat")),
+                "long": float(doc.get("long")),
+                
+            }
+            for doc in hospitals_ref.stream()
+        ]
 
-@app.route('/get_results/<email>', methods=['GET'])
-@jwt_authenticate
-def get_results(email):
-    try:
-        results_ref = db.collection('results').where('email', '==', email).stream()
-        results = [doc.to_dict() for doc in results_ref]
-        return jsonify({'results': results}), 200
+        for hospital in hospitals:
+            hospital["distance"] = get_location.cartesian_distance(lat, long, hospital["lat"], hospital["long"])
+        nearest_hosps = sorted(hospitals, key=lambda x: x["distance"])[:3]
+        return jsonify({
+            "nearest_hospitals": [
+                {
+                    "uuid": hospital["uuid"],
+                    "name": hospital["name"],
+                    "latitude": hospital["lat"],
+                    "longitude": hospital["long"],
+                }
+                for hospital in nearest_hosps
+            ]
+        }), 200
     except Exception as e:
-        return jsonify({'message': f'Error: {str(e)}'}), 500
+        return jsonify({"error": str(e)}), 400
 
 if __name__ == "__main__":
     app.run(debug=True)
