@@ -1,6 +1,7 @@
 from flask import Flask, request, render_template, redirect, url_for
 import firebase_admin
 from firebase_admin import credentials, firestore
+import uuid
 
 cred = credentials.Certificate("aarogyam-d06ff-firebase-adminsdk-cwxbv-f009afdfb4.json")
 firebase_admin.initialize_app(cred)
@@ -27,6 +28,7 @@ def signup():
             # Store user details in Firestore
             user_ref = db.collection('users').document(email)
             user_ref.set({
+                'uuid': uuid.uuid4(),
                 'email': email,
                 'password': password,  # Not recommended to store passwords in plaintext; hash them
                 'name': name,
@@ -37,6 +39,8 @@ def signup():
             return render_template('signup.html', error=error)
 
     return render_template('signup.html')
+
+
 
 # Signin Endpoint
 @app.route('/signin', methods=['GET', 'POST'])
@@ -71,6 +75,7 @@ def signin():
 
     return render_template('login.html')
 
+
 # Register Result
 @app.route('/register_result', methods=['POST'])
 def register_result():
@@ -100,6 +105,46 @@ def get_results(email):
         results_ref = db.collection('results').where('email', '==', email).stream()
         results = [doc.to_dict() for doc in results_ref]
         return render_template('results.html', results=results)
+    except Exception as e:
+        return f"Error: {str(e)}", 500
+    
+@app.route('/register_hospital', methods=['GET','POST'])
+def register_hospital():
+    if request.method=="POST":
+        data = request.form
+        name = data.get('name')
+        lat = data.get('latitude')
+        long = data.get('longitude')
+
+        errors = {
+            not name: "Name is missing",
+            not lat: "Latitude is missing",
+            not long: "Longitude is missing"
+        }
+
+        for condition, message in errors.items():
+            if condition:
+                return {'message': message}, 400
+        
+        try:
+            hospital_ref = db.collection("hospitals").document()
+            hospital_ref.set({
+                'uuid': str(uuid.uuid4()),
+                'name':name,
+                'lat':lat,
+                'long':long
+
+            })
+            return "Result registered successfully", 200
+        except Exception as e:
+            return f"Error: {str(e)}", 500
+
+@app.route('/get_hospitals', methods=['GET'])
+def get_all_hospitals():
+    try:
+        hospitals_ref = db.collection('hospitals').stream()
+        results = [doc.to_dict() for doc in hospitals_ref]
+        return results, 200
     except Exception as e:
         return f"Error: {str(e)}", 500
 
