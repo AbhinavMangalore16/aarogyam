@@ -126,6 +126,46 @@ def nearest_hospitals():
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+    
+@app.route('/register_hospital', methods=['GET','POST'])
+def register_hospital():
+    if request.method=="POST":
+        data = request.form
+        name = data.get('name')
+        lat = data.get('latitude')
+        long = data.get('longitude')
+
+        errors = {
+            not name: "Name is missing",
+            not lat: "Latitude is missing",
+            not long: "Longitude is missing"
+        }
+
+        for condition, message in errors.items():
+            if condition:
+                return {'message': message}, 400
+        
+        try:
+            hospital_ref = db.collection("hospitals").document()
+            hospital_ref.set({
+                'uuid': str(uuid.uuid4()),
+                'name':name,
+                'lat':lat,
+                'long':long
+
+            })
+            return "Result registered successfully", 200
+        except Exception as e:
+            return f"Error: {str(e)}", 500
+
+@app.route('/get_hospitals', methods=['GET'])
+def get_all_hospitals():
+    try:
+        hospitals_ref = db.collection('hospitals').stream()
+        results = [doc.to_dict() for doc in hospitals_ref]
+        return results, 200
+    except Exception as e:
+        return f"Error: {str(e)}", 500
 
 if __name__ == "__main__":
     app.run(debug=True)
