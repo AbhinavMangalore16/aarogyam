@@ -1,108 +1,131 @@
-from flask import Flask, request, render_template, redirect, url_for
+from flask import Flask, request, jsonify
 import firebase_admin
 from firebase_admin import credentials, firestore
+from werkzeug.security import generate_password_hash, check_password_hash
+import jwt
+import datetime
+import uuid
+from functools import wraps
+import os
+from location import get_location
 
-cred = credentials.Certificate("aarogyam-d06ff-firebase-adminsdk-cwxbv-f009afdfb4.json")
+cred = credentials.Certificate(os.environ['FIREBASE_KEY'])
 firebase_admin.initialize_app(cred)
 
-# Firestore client
 db = firestore.client()
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = os.environ['APP_KEY']
 
-# Signup Endpoint
-@app.route('/signup', methods=['GET', 'POST'])
+def jwt_authenticate(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('x-access-token')
+        if not token:
+            return jsonify({'message': 'Token is missing!'}), 401
+        try:
+            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+            current_user = db.collection('users').document(data['email']).get()
+            if not current_user.exists:
+                return jsonify({'message': 'User not found!'}), 401
+        except Exception as e:
+            return jsonify({'message': 'Token is invalid!', 'error': str(e)}), 401
+        return f(*args, **kwargs)
+    return decorated
+
+@app.route('/signup', methods=['POST'])
 def signup():
-    if request.method == 'POST':
-        data = request.form
-        email = data.get('email')
-        password = data.get('password')
-        name = data.get('name')
-
-        if not email or not password or not name:
-            error = "Missing email, password, or name"
-            return render_template('signup.html', error=error)
-
-        try:
-            # Store user details in Firestore
-            user_ref = db.collection('users').document(email)
-            user_ref.set({
-                'email': email,
-                'password': password,  # Not recommended to store passwords in plaintext; hash them
-                'name': name,
-            })
-            return redirect(url_for('signin'))
-        except Exception as e:
-            error = f"Error: {str(e)}"
-            return render_template('signup.html', error=error)
-
-    return render_template('signup.html')
-
-# Signin Endpoint
-@app.route('/signin', methods=['GET', 'POST'])
-def signin():
-    if request.method == 'POST':
-        data = request.form
-        email = data.get('email')
-        password = data.get('password')
-
-        if not email or not password:
-            error = "Missing email or password"
-            return render_template('login.html', error=error)
-
-        try:
-            # Retrieve user details from Firestore
-            user_ref = db.collection('users').document(email)
-            user_doc = user_ref.get()
-
-            if not user_doc.exists:
-                error = "User does not exist"
-                return render_template('login.html', error=error)
-
-            user_data = user_doc.to_dict()
-            if user_data['password'] != password:  # Again, use hashed passwords in production
-                error = "Invalid credentials"
-                return render_template('login.html', error=error)
-
-            return render_template('welcome.html', user=user_data)
-        except Exception as e:
-            error = f"Error: {str(e)}"
-            return render_template('login.html', error=error)
-
-    return render_template('login.html')
-
-# Register Result
-@app.route('/register_result', methods=['POST'])
-def register_result():
     data = request.json
     email = data.get('email')
-    result = data.get('result')
+    password = data.get('password')
+    name = data.get('name')
 
-    if not email or not result:
-        return "Missing email or result", 400
+    if not email or not password or not name:
+        return jsonify({'message': 'Missing email, password, or name'}), 400
 
     try:
-        # Save result to Firestore
-        result_ref = db.collection('results').document()
-        result_ref.set({
+        user_ref = db.collection('users').document(email)
+        if user_ref.get().exists:
+            return jsonify({'message': 'User already exists'}), 400
+
+        hashed_password = generate_password_hash(password)
+        user_id = str(uuid.uuid4())
+        user_ref.set({
             'email': email,
-            'result': result
+            'password': hashed_password,
+            'name': name,
+            'user_id': user_id
         })
-        return "Result registered successfully", 200
+        return jsonify({'message': 'User registered successfully', 'user_id': user_id}), 201
     except Exception as e:
-        return f"Error: {str(e)}", 500
+        return jsonify({'message': f'Error: {str(e)}'}), 500
 
-# Fetch Results
-@app.route('/get_results/<email>', methods=['GET'])
-def get_results(email):
+@app.route('/signin', methods=['POST'])
+def signin():
+    data = request.json
+    email = data.get('email')
+    password = data.get('password')
+
+    if not email or not password:
+        return jsonify({'message': 'Missing email or password'}), 400
+
     try:
-        # Fetch user results from Firestore
-        results_ref = db.collection('results').where('email', '==', email).stream()
-        results = [doc.to_dict() for doc in results_ref]
-        return render_template('results.html', results=results)
-    except Exception as e:
-        return f"Error: {str(e)}", 500
+        user_ref = db.collection('users').document(email)
+        user_doc = user_ref.get()
 
-# Run the app
+        if not user_doc.exists:
+            return jsonify({'message': 'User does not exist'}), 404
+
+        user_data = user_doc.to_dict()
+        if not check_password_hash(user_data['password'], password):
+            return jsonify({'message': 'Invalid credentials'}), 401
+
+        token = jwt.encode({
+            'email': email,
+            'user_id': user_data['user_id'],
+            'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+        }, app.config['SECRET_KEY'], algorithm="HS256")
+
+        return jsonify({'token': token}), 200
+    except Exception as e:
+        return jsonify({'message': f'Error: {str(e)}'}), 500
+    
+@app.route('/nearby_hospitals', methods = ['GET'])
+@jwt_authenticate
+def nearest_hospitals():
+    try:
+        lat, long = get_location.get_userlocation()
+        
+        hospitals_ref = db.collection('hospitals')
+        for doc in hospitals_ref.stream():
+            print(doc.to_dict())
+        hospitals = [
+            {
+                "uuid": doc.get("uuid"),
+                "name": doc.get("name"),
+                "lat": float(doc.get("lat")),
+                "long": float(doc.get("long")),
+                
+            }
+            for doc in hospitals_ref.stream()
+        ]
+
+        for hospital in hospitals:
+            hospital["distance"] = get_location.cartesian_distance(lat, long, hospital["lat"], hospital["long"])
+        nearest_hosps = sorted(hospitals, key=lambda x: x["distance"])[:3]
+        return jsonify({
+            "nearest_hospitals": [
+                {
+                    "uuid": hospital["uuid"],
+                    "name": hospital["name"],
+                    "latitude": hospital["lat"],
+                    "longitude": hospital["long"],
+                }
+                for hospital in nearest_hosps
+            ]
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
 if __name__ == "__main__":
     app.run(debug=True)
