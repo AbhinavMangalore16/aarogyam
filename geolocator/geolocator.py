@@ -29,7 +29,6 @@ def nearby_hospitals(lat, long):
                 "latitude": hospital.get("lat"),
                 "longitude": hospital.get("lon"),
                 "address": hospital.get("tags", {}).get("addr:full", "Not available"),
-                "vicinity": hospital.get("vicinity"),
                 "rating": hospital.get("rating", "N/A"),
                 "contact": hospital.get("formatted_phone_number", "N/A")
             })
