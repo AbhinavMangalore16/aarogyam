@@ -166,6 +166,32 @@ def get_all_hospitals():
         return results, 200
     except Exception as e:
         return f"Error: {str(e)}", 500
+    
+@app.route('/add_user', methods = ['GET','POST'])
+def add_user(user_id, name, email):
+    user_ref = db.collection('user-test1').document(user_id)
+    user_ref.set({
+        "name": name, 
+        "email": email
+    })
+    print(f"User {name} added successfully..")
+
+@app.route('/add_health_rec', methods = ['GET', 'POST'])
+def add_health_rec(user_id, record_data):
+    record_ref = db.collection("user-test1").document(user_id).collection("healthRecords").document()
+    record_data["id"] = record_ref.id
+    record_ref.set(record_data)
+    print(f"Health record with ID: {record_ref.id} added successfully..")
+
+@app.route('/get_health_rec', methods = ['GET'])
+def get_health_rec(user_id):
+    records_ref = db.collection("user-test1").document(user_id).collection("healthRecords")
+    docs = records_ref.stream()
+    records = [doc.to_dict() for doc in docs]
+    return records
 
 if __name__ == "__main__":
+    with app.app_context():
+        health_rec = get_health_rec("user1111")
+        print(health_rec)
     app.run(debug=True)
