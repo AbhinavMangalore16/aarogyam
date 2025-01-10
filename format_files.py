@@ -1,7 +1,4 @@
 def format_records(records):
-    """
-    Format a list of records into human-readable text.
-    """
     formatted = []
     for record in records:
         resource_type = record.get('resourceType', 'Unknown')
@@ -15,10 +12,6 @@ def format_records(records):
     return formatted
 
 def format_individual_resource(resource):
-    """
-    Format individual resources like Patient, Observation, Condition, Medication, or Encounter,
-    including text and the associated link to the code.
-    """
     resource_type = resource.get('resourceType', 'Unknown')
     
     if resource_type == 'Patient':
