@@ -128,6 +128,7 @@ def nearest_hospitals():
         return jsonify({"error": str(e)}), 400
     
 @app.route('/register_hospital', methods=['GET','POST'])
+@jwt_authenticate
 def register_hospital():
     if request.method=="POST":
         data = request.form
@@ -159,6 +160,7 @@ def register_hospital():
             return f"Error: {str(e)}", 500
 
 @app.route('/get_hospitals', methods=['GET'])
+@jwt_authenticate
 def get_all_hospitals():
     try:
         hospitals_ref = db.collection('hospitals').stream()
@@ -168,6 +170,7 @@ def get_all_hospitals():
         return f"Error: {str(e)}", 500
     
 @app.route('/add_user', methods = ['GET','POST'])
+@jwt_authenticate
 def add_user(user_id, name, email):
     user_ref = db.collection('user-test1').document(user_id)
     user_ref.set({
@@ -177,6 +180,7 @@ def add_user(user_id, name, email):
     print(f"User {name} added successfully..")
 
 @app.route('/add_health_rec', methods = ['POST'])
+@jwt_authenticate
 def add_health_rec():
     try:
         data = request.json
@@ -369,6 +373,7 @@ def filter_resources(resource_type):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/update_health_rec', methods=['POST'])
+@jwt_authenticate
 def update_health_rec():
     try:
         data = request.json
@@ -385,6 +390,7 @@ def update_health_rec():
 
 
 @app.route('/delete_health_rec', methods = ['DELETE'])
+@jwt_authenticate
 def delete_health_rec():
     try:
         user_id = request.args.get('user_id')
