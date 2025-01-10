@@ -445,21 +445,21 @@ def book_appointment():
 
     return jsonify({"status": "success", "appointment_id": appointment_ref[1].id})
 
-# View Slots
-@app.route('/slots/<provider_id>', methods=['GET'])
-@jwt_authenticate
-def get_slots(provider_id):
-    # Check if practitioner exists
-    if not check_practitioner_exists(provider_id):
-        return jsonify({"error": "Invalid provider_id"}), 404
+# # View Slots
+# @app.route('/slots/<provider_id>', methods=['GET'])
+# @jwt_authenticate
+# def get_slots(provider_id):
+#     # Check if practitioner exists
+#     if not check_practitioner_exists(provider_id):
+#         return jsonify({"error": "Invalid provider_id"}), 404
 
-    # Fetch available slots
-    slots = fetch_slots(provider_id)
+#     # Fetch available slots
+#     slots = fetch_slots(provider_id)
 
-    if not slots:
-        return jsonify({"error": "No available slots found for this provider."}), 404
+#     if not slots:
+#         return jsonify({"error": "No available slots found for this provider."}), 404
 
-    return jsonify({"slots": slots})
+#     return jsonify({"slots": slots})
 
 # Reschedule Appointment
 @app.route('/reschedule', methods=['POST'])
